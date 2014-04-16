@@ -438,6 +438,32 @@ function simplify_path(xys) {
     return simplified_xys;
 }
 
+function avoid_overlap(xys) {
+    var rail_num = 5; // should be odd integer
+    var rail_half = Math.floor(rail_num / 2);
+    var dr = Math.max(0.08, 0.4 / rail_num);
+    var rail_x = {};
+    var rail_y = {};
+    for (var i = 1; i < xys.length; ++ i) {
+        if (xys[i].y == xys[i-1].y) {
+            y = xys[i].y;
+            rail_y[y] = rail_y[y] || 0;
+            var dy = ORB_HEIGHT * (rail_y[y] - rail_half) * dr;
+            rail_y[y] = (rail_y[y] + rail_half) % rail_num;
+            xys[i].y += dy;
+            xys[i-1].y += dy;
+        } else if (xys[i].x == xys[i-1].x) {
+            x = xys[i].x;
+            rail_x[x] = rail_x[x] || 0;
+            var dx = ORB_WIDTH * (rail_x[x] - rail_half) * dr;
+            rail_x[x] = (rail_x[x] + rail_half) % rail_num;
+            xys[i].x += dx;
+            xys[i-1].x += dx;
+        }
+    }
+    return xys;
+}
+
 function simplify_solutions(solutions) {
     var simplified_solutions = [];
     solutions.forEach(function(solution) {
@@ -454,6 +480,18 @@ function simplify_solutions(solutions) {
         simplified_solutions.push(solution);
     });
     return simplified_solutions;
+}
+
+function sign(x) {
+    return x > 0 ? 1 : x < 0 ? -1 : 0;
+}
+
+function draw_line_to2(canvas, px, py, x, y) {
+    var dr = 0.1;
+    var dx = ORB_WIDTH  * dr * sign(x - px);
+    var dy = ORB_HEIGHT * dr * sign(y - py);
+    canvas.lineTo(px + dx, py + dy);
+    canvas.lineTo( x - dx,  y - dy);
 }
 
 function draw_line_to(canvas, px, py, x, y) {
@@ -482,23 +520,23 @@ function draw_path(init_rc, path) {
     });
 
     xys = simplify_path(xys);
-
-    canvas.lineWidth = 4;
-    canvas.strokeStyle = 'rgba(0, 0, 0, 0.75)';
-    canvas.beginPath();
-    for (var i = 0; i < xys.length; ++ i) {
-        var xy = xys[i];
-        if (i == 0) {
-            canvas.moveTo(xy.x, xy.y);
-        } else {
-            var prev_xy = xys[i-1];
-            draw_line_to(canvas, prev_xy.x, prev_xy.y, xy.x, xy.y);
-        }
-    }
-    canvas.stroke();
+    avoid_overlap(xys);
 
     var init_xy = xys[0];
     var final_xy = xys[xys.length-1];
+
+    canvas.lineWidth = 4;
+    canvas.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+
+    canvas.beginPath();
+    canvas.moveTo(init_xy.x, init_xy.y);
+    for (var i = 1; i < xys.length; ++ i) {
+        var xy = xys[i];
+        var prev_xy = xys[i-1];
+        draw_line_to2(canvas, prev_xy.x, prev_xy.y, xy.x, xy.y);
+    }
+    canvas.lineTo(final_xy.x, final_xy.y);
+    canvas.stroke();
 
     canvas.lineWidth = 2;
     canvas.fillStyle = 'red';
